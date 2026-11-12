@@ -22,12 +22,16 @@ jobs:
           gradle-version: "8.10.2"
       - name: Compilar
         run: gradle assembleRelease --no-daemon --stacktrace
-      - name: Renombrar APK
-        run: cp app/build/outputs/apk/release/app-release.apk ControlDatosCNT.apk
+      - name: Renombrar APKs
+        run: |
+          cp app/build/outputs/apk/release/app-release.apk ControlDatosCNT.apk
+          cp bateria/build/outputs/apk/release/bateria-release.apk MonitorBateria.apk
       - name: Publicar descarga
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.${{ github.run_number }}
-          name: Control de Datos CNT v1.0.${{ github.run_number }}
-          files: ControlDatosCNT.apk
+          name: Apps Android JAT v1.0.${{ github.run_number }}
+          files: |
+            ControlDatosCNT.apk
+            MonitorBateria.apk
           make_latest: true

@@ -24,3 +24,8 @@ Cada vez que se sube un cambio, GitHub compila la app sola y actualiza ese enlac
 4. Permite las notificaciones.
 5. Registra tu saldo (automático con el código CNT, o a mano) y la fecha de vencimiento.
 6. En Xiaomi/Redmi: Ajustes → Apps → Control de Datos → activar **Inicio automático** y batería **Sin restricciones**.
+
+---
+## Otra app en este repositorio
+📱 **Monitor de Batería** — ver qué apps gastan más batería. Detalles en [bateria/README.md](bateria/README.md).
+👉 [Descargar MonitorBateria.apk](https://github.com/Jtbarzallo/control-datos-cnt/releases/latest/download/MonitorBateria.apk)
