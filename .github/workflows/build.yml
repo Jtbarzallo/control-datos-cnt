@@ -26,6 +26,7 @@ jobs:
         run: |
           cp app/build/outputs/apk/release/app-release.apk ControlDatosCNT.apk
           cp bateria/build/outputs/apk/release/bateria-release.apk MonitorBateria.apk
+          cp musica/build/outputs/apk/release/musica-release.apk PasarMusica.apk
       - name: Publicar descarga
         uses: softprops/action-gh-release@v2
         with:
@@ -34,4 +35,5 @@ jobs:
           files: |
             ControlDatosCNT.apk
             MonitorBateria.apk
+            PasarMusica.apk
           make_latest: true

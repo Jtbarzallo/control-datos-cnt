@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pasar música a la radio</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, sans-serif; background: #121212; color: #eee; }
+  header { background: #6A1B9A; padding: 16px; }
+  h1 { margin: 0; font-size: 22px; }
+  header p { margin: 4px 0 0; font-size: 14px; color: #E1BEE7; }
+  main { padding: 14px; }
+  .btn { display: block; width: 100%; padding: 16px; font-size: 18px; font-weight: bold; border: 0; border-radius: 12px; margin-bottom: 12px; color: #fff; }
+  .elegir { background: #455A64; }
+  .enviar { background: #2E7D32; }
+  .enviar:disabled { background: #555; color: #999; }
+  .cancelar { background: #C62828; display: none; }
+  #total { font-size: 15px; margin: 6px 0 10px; color: #B0BEC5; }
+  .barra { height: 10px; background: #333; border-radius: 6px; overflow: hidden; }
+  .barra > div { height: 100%; width: 0; background: #66BB6A; transition: width .2s; }
+  ul { list-style: none; padding: 0; margin: 12px 0 0; }
+  li { background: #1E1E1E; border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+  li .n { font-size: 15px; word-break: break-word; }
+  li .e { font-size: 13px; margin-top: 4px; color: #B0BEC5; }
+  li .barra { margin-top: 6px; height: 6px; }
+  .ok { color: #66BB6A !important; } .mal { color: #EF5350 !important; } .ya { color: #FFD54F !important; }
+  .aviso { background: #3E2723; color: #FFCC80; padding: 10px 12px; border-radius: 10px; font-size: 14px; margin-bottom: 12px; }
+  label.chk { display: flex; gap: 8px; align-items: center; font-size: 15px; margin-bottom: 12px; }
+  input[type=file] { display: none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🎵 Pasar música a la radio</h1>
+  <p id="radio">Conectando con la radio…</p>
+</header>
+<main>
+  <div class="aviso">Mantén la pantalla del celular prendida y esta página abierta mientras se envían las canciones.</div>
+
+  <input type="file" id="archivos" multiple accept="audio/*,.mp3,.m4a,.aac,.flac,.wav,.ogg,.opus,.wma">
+  <button class="btn elegir" id="btnElegir">📂 Elegir canciones</button>
+  <label class="chk"><input type="checkbox" id="saltar" checked> No enviar las que ya están en la radio</label>
+  <button class="btn enviar" id="btnEnviar" disabled>⬆️ Enviar a la radio</button>
+  <button class="btn cancelar" id="btnCancelar">✖ Detener</button>
+
+  <div id="total">Elige las canciones que quieres pasar.</div>
+  <div class="barra"><div id="barraTotal"></div></div>
+  <ul id="lista"></ul>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var archivos = [];        // { file, li, estado, barra }
+  var enRadio = {};         // nombres que ya tiene la radio (minúsculas)
+  var libre = -1;
+  var enviando = false, detener = false, xhrActual = null;
+
+  function mb(b) { return (b / 1048576).toFixed(1) + ' MB'; }
+
+  function cargarInfo() {
+    fetch('/info').then(function (r) { return r.json(); }).then(function (i) {
+      libre = i.libre;
+      $('radio').textContent = 'Conectado a: ' + i.radio + ' · Libre: ' + (libre >= 0 ? mb(libre) : '¿?') + ' · Se guardan en ' + i.carpeta;
+    }).catch(function () { $('radio').textContent = '⚠️ No se pudo conectar con la radio. Revisa que estén en el mismo WiFi.'; });
+    fetch('/canciones').then(function (r) { return r.json(); }).then(function (l) {
+      enRadio = {}; l.forEach(function (n) { enRadio[n] = true; }); marcarExistentes();
+    }).catch(function () {});
+  }
+
+  function limpiarNombre(n) { return n.replace(/[\\\/:*?"<>|\u0000-\u001F]/g, '_').trim().toLowerCase(); }
+
+  function marcarExistentes() {
+    archivos.forEach(function (a) {
+      if (a.estado === 'pendiente' || a.estado === 'ya') {
+        var ya = !!enRadio[limpiarNombre(a.file.name)];
+        a.estado = ya ? 'ya' : 'pendiente';
+        a.e.textContent = ya ? 'Ya está en la radio · ' + mb(a.file.size) : 'Pendiente · ' + mb(a.file.size);
+        a.e.className = 'e' + (ya ? ' ya' : '');
+      }
+    });
+    resumen();
+  }
+
+  function aEnviar() {
+    var saltar = $('saltar').checked;
+    return archivos.filter(function (a) { return a.estado === 'pendiente' || (!saltar && a.estado === 'ya'); });
+  }
+
+  function resumen() {
+    if (enviando) return;
+    var l = aEnviar(), total = 0;
+    l.forEach(function (a) { total += a.file.size; });
+    $('btnEnviar').disabled = l.length === 0;
+    if (archivos.length === 0) { $('total').textContent = 'Elige las canciones que quieres pasar.'; return; }
+    var txt = l.length + ' canciones por enviar (' + mb(total) + ')';
+    if (libre >= 0 && total > libre - 200 * 1048576) txt += ' — ⚠️ no hay espacio suficiente en la radio';
+    $('total').textContent = txt;
+  }
+
+  $('btnElegir').onclick = function () { if (!enviando) $('archivos').click(); };
+  $('saltar').onchange = resumen;
+
+  $('archivos').onchange = function () {
+    var nuevos = Array.prototype.slice.call(this.files);
+    nuevos.forEach(function (f) {
+      var li = document.createElement('li');
+      var n = document.createElement('div'); n.className = 'n'; n.textContent = f.name;
+      var e = document.createElement('div'); e.className = 'e';
+      var b = document.createElement('div'); b.className = 'barra'; var bi = document.createElement('div'); b.appendChild(bi);
+      li.appendChild(n); li.appendChild(e); li.appendChild(b);
+      $('lista').appendChild(li);
+      archivos.push({ file: f, li: li, e: e, barra: bi, estado: 'pendiente' });
+    });
+    this.value = '';
+    marcarExistentes();
+  };
+
+  function subir(a) {
+    return new Promise(function (ok) {
+      var x = new XMLHttpRequest();
+      xhrActual = x;
+      x.open('POST', '/subir');
+      x.setRequestHeader('Content-Type', 'application/octet-stream');
+      x.setRequestHeader('X-Nombre', encodeURIComponent(a.file.name));
+      x.upload.onprogress = function (ev) {
+        if (ev.lengthComputable) {
+          a.barra.style.width = (ev.loaded * 100 / ev.total) + '%';
+          a.e.textContent = 'Enviando… ' + mb(ev.loaded) + ' de ' + mb(ev.total);
+          avance(ev.loaded);
+        }
+      };
+      x.onload = function () {
+        var r = {}; try { r = JSON.parse(x.responseText); } catch (e) {}
+        ok(r.ok ? { ok: true, msg: r.mensaje } : { ok: false, msg: r.mensaje || ('Error ' + x.status) });
+      };
+      x.onerror = function () { ok({ ok: false, msg: 'Se perdió la conexión con la radio' }); };
+      x.onabort = function () { ok({ ok: false, msg: 'Detenido' }); };
+      x.send(a.file);
+    });
+  }
+
+  var totalBytes = 0, hechoBytes = 0;
+  function avance(actual) {
+    var p = totalBytes ? (hechoBytes + actual) * 100 / totalBytes : 0;
+    $('barraTotal').style.width = Math.min(100, p) + '%';
+  }
+
+  $('btnEnviar').onclick = async function () {
+    var l = aEnviar();
+    if (!l.length) return;
+    enviando = true; detener = false;
+    $('btnEnviar').disabled = true; $('btnCancelar').style.display = 'block';
+    totalBytes = 0; hechoBytes = 0;
+    l.forEach(function (a) { totalBytes += a.file.size; });
+    var bien = 0, mal = 0;
+    for (var i = 0; i < l.length && !detener; i++) {
+      var a = l[i];
+      $('total').textContent = 'Enviando ' + (i + 1) + ' de ' + l.length + '…';
+      a.e.className = 'e';
+      var r = await subir(a);
+      hechoBytes += a.file.size;
+      if (r.ok) {
+        bien++; a.estado = 'enviada'; a.barra.style.width = '100%';
+        a.e.textContent = '✅ Guardada en ' + r.msg; a.e.className = 'e ok';
+        enRadio[limpiarNombre(a.file.name)] = true;
+      } else {
+        mal++; a.barra.style.width = '0';
+        a.e.textContent = '❌ ' + r.msg; a.e.className = 'e mal';
+      }
+      avance(0);
+    }
+    enviando = false; xhrActual = null;
+    $('btnCancelar').style.display = 'none';
+    l.forEach(function (a) { if (a.estado !== 'enviada' && a.e.className.indexOf('mal') < 0) a.estado = 'pendiente'; });
+    resumen();
+    $('total').textContent = '✅ ' + bien + ' enviadas' + (mal ? ' · ❌ ' + mal + ' con error (puedes volver a enviarlas)' : '') + '. ' + $('total').textContent;
+    l.forEach(function (a) { if (a.e.className.indexOf('mal') >= 0) a.estado = 'pendiente'; });
+    $('btnEnviar').disabled = aEnviar().length === 0;
+    cargarInfo();
+  };
+
+  $('btnCancelar').onclick = function () { detener = true; if (xhrActual) xhrActual.abort(); };
+
+  window.onbeforeunload = function () { if (enviando) return 'Se están enviando canciones'; };
+
+  cargarInfo();
+})();
+</script>
+</body>
+</html>

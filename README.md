@@ -29,3 +29,8 @@ Cada vez que se sube un cambio, GitHub compila la app sola y actualiza ese enlac
 ## Otra app en este repositorio
 📱 **Monitor de Batería** — ver qué apps gastan más batería. Detalles en [bateria/README.md](bateria/README.md).
 👉 [Descargar MonitorBateria.apk](https://github.com/Jtbarzallo/control-datos-cnt/releases/latest/download/MonitorBateria.apk)
+
+---
+## Otra app en este repositorio
+🎵 **Pasar Música** — pasar canciones del celular a la memoria de la radio Android del carro. Detalles en [musica/README.md](musica/README.md).
+👉 [Descargar PasarMusica.apk](https://github.com/Jtbarzallo/control-datos-cnt/releases/latest/download/PasarMusica.apk)

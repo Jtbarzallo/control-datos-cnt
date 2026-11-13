@@ -8,3 +8,4 @@ dependencyResolutionManagement {
 rootProject.name = "ControlDatosCNT"
 include(":app")
 include(":bateria")
+include(":musica")
